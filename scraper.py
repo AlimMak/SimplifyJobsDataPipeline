@@ -61,8 +61,23 @@ def extract_raw_rows(markdown: str) -> Generator[RawJobRow, None, None]:
     """
     Yield RawJobRow objects — one per <tr> in each category table.
     Keeps track of which category section each row belongs to.
+    STOPS when it hits the "Inactive roles" section.
     """
-    soup = BeautifulSoup(markdown, "html.parser")
+    # Cut off everything after the inactive roles section BEFORE parsing
+    inactive_markers = [
+        "Inactive roles",
+        "🗃️ Inactive",
+        "Inactive Roles",
+    ]
+    clean_markdown = markdown
+    for marker in inactive_markers:
+        idx = clean_markdown.find(marker)
+        if idx != -1:
+            clean_markdown = clean_markdown[:idx]
+            logger.info("Truncated markdown at '%s' (position %d) — skipping inactive roles", marker, idx)
+            break
+
+    soup = BeautifulSoup(clean_markdown, "html.parser")
 
     current_category = "Other"
     row_idx = 0
@@ -95,6 +110,13 @@ def extract_raw_rows(markdown: str) -> Generator[RawJobRow, None, None]:
 
 def _regex_extract_rows(markdown: str) -> Generator[RawJobRow, None, None]:
     """Fallback regex-based row extraction."""
+    # Also cut off inactive section in fallback
+    for marker in ["Inactive roles", "🗃️ Inactive", "Inactive Roles"]:
+        idx = markdown.find(marker)
+        if idx != -1:
+            markdown = markdown[:idx]
+            break
+
     current_category = "Other"
     row_idx = 0
 
