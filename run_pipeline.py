@@ -43,8 +43,14 @@ def run_demo_without_kafka():
 
     # Step 1: Scrape and clean
     logger.info("\n📥 Step 1: Scraping & cleaning job listings...")
-    jobs = scrape_and_clean()
-    logger.info("   Found %d unique job listings\n", len(jobs))
+    all_jobs = scrape_and_clean()
+    logger.info("   Found %d total job listings", len(all_jobs))
+
+    # Step 1b: Apply freshness filter
+    from config import FRESH_JOBS_MAX_AGE_DAYS
+    jobs = [j for j in all_jobs if j.age_days <= FRESH_JOBS_MAX_AGE_DAYS]
+    logger.info("   After freshness filter (≤%dd): %d jobs\n",
+                FRESH_JOBS_MAX_AGE_DAYS, len(jobs))
 
     # Step 2: Simulate analytics consumer
     logger.info("📊 Step 2: Running analytics...")

@@ -220,13 +220,17 @@ def run_producer():
     """
     Main producer workflow:
       1. Scrape the GitHub README
-      2. Extract raw rows → publish to 'raw-job-listings'
-      3. Clean & parse rows → publish to 'cleaned-jobs'
-      4. Partition by category → publish to 'jobs-by-category'
-      5. Filter high-interest → publish to 'job-alerts'
+      2. Extract raw rows → publish to 'raw-job-listings' (ALL jobs)
+      3. Filter to fresh jobs only
+      4. Clean & parse rows → publish to 'cleaned-jobs'
+      5. Partition by category → publish to 'jobs-by-category'
+      6. Filter high-interest → publish to 'job-alerts'
     """
+    from config import FRESH_JOBS_MAX_AGE_DAYS, PUBLISH_ALL_TO_RAW
+
     logger.info("=" * 60)
     logger.info("  JOB LISTINGS KAFKA PRODUCER")
+    logger.info("  Freshness filter: %d days", FRESH_JOBS_MAX_AGE_DAYS)
     logger.info("=" * 60)
 
     producer = create_producer()
@@ -238,19 +242,33 @@ def run_producer():
         raw_rows = list(extract_raw_rows(markdown))
         logger.info("Scraping took %.2fs — %d raw rows found", time.time() - start, len(raw_rows))
 
-        # Clean
+        # Clean ALL jobs first
         from scraper import scrape_and_clean
-        jobs = scrape_and_clean()
+        all_jobs = scrape_and_clean()
 
-        # Publish to all topics
-        publish_raw_rows(producer, raw_rows)
-        publish_cleaned_jobs(producer, jobs)
-        publish_by_category(producer, jobs)
-        publish_alerts(producer, jobs)
+        # Publish ALL raw rows to raw topic (historical archive)
+        if PUBLISH_ALL_TO_RAW:
+            publish_raw_rows(producer, raw_rows)
+
+        # Filter to fresh jobs only for downstream processing
+        fresh_jobs = [j for j in all_jobs if j.age_days <= FRESH_JOBS_MAX_AGE_DAYS]
+        stale_jobs = len(all_jobs) - len(fresh_jobs)
 
         logger.info("=" * 60)
-        logger.info("  PRODUCER COMPLETE — %d jobs published across %d topics",
-                     len(jobs), len(TOPICS))
+        logger.info("  FRESHNESS FILTER RESULTS")
+        logger.info("  Total scraped:  %d jobs", len(all_jobs))
+        logger.info("  Fresh (≤%dd):   %d jobs  ✓ published", FRESH_JOBS_MAX_AGE_DAYS, len(fresh_jobs))
+        logger.info("  Stale (>%dd):   %d jobs  ✗ filtered out", FRESH_JOBS_MAX_AGE_DAYS, stale_jobs)
+        logger.info("=" * 60)
+
+        # Publish only fresh jobs to downstream topics
+        publish_cleaned_jobs(producer, fresh_jobs)
+        publish_by_category(producer, fresh_jobs)
+        publish_alerts(producer, fresh_jobs)
+
+        logger.info("=" * 60)
+        logger.info("  PRODUCER COMPLETE — %d fresh jobs published across %d topics",
+                     len(fresh_jobs), len(TOPICS))
         logger.info("=" * 60)
 
     except Exception as e:

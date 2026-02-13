@@ -61,15 +61,26 @@ ALERT_LOCATIONS = [
     "Seattle",
     "San Francisco",
     "Mountain View",
+    "Houston",
+    "TX",
+    "California",
+    "CA",
 ]
 
 ALERT_COMPANIES_KEYWORDS = [
     "Google", "Microsoft", "Amazon", "Meta", "Apple", "Netflix",
     "NVIDIA", "Stripe", "Coinbase", "Roblox", "Pinterest",
+    "Airtable", "Anduril", "Toast", "Affirm", "Verkada",
 ]
 
-ALERT_MAX_AGE_DAYS = 14  # only alert on jobs posted within this window
+ALERT_MAX_AGE_DAYS = 7  # only alert on jobs posted within this window
 ALERT_EXCLUDE_CLOSED = True  # skip 🔒 listings
+
+# ---------------------------------------------------------------------------
+# Freshness filter — used by producer to only publish recent jobs
+# ---------------------------------------------------------------------------
+FRESH_JOBS_MAX_AGE_DAYS = 3  # only publish jobs posted in last 3 days to cleaned/alerts
+PUBLISH_ALL_TO_RAW = True     # still keep ALL jobs in raw topic for historical record
 
 # ---------------------------------------------------------------------------
 # Data source
